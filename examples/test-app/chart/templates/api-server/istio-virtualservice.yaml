@@ -1,0 +1,25 @@
+{{- if .Values.apiServer.enabled }}
+{{- if .Values.apiServer.service.internal.enabled }}
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: {{ include "chart.fullname" . }}-api-server
+spec:
+  hosts:
+  {{ toYaml .Values.apiServer.service.internal.hosts |  indent 4}}
+  gateways:
+  - knative-ingress-gateway.knative-serving.svc.cluster.local
+  http:
+  - match:
+    - uri:
+        exact: {{ .Values.apiServer.service.internal.path }}
+    rewrite:
+      authority: {{ include "chart.fullname" . }}-internal-api-server.default.svc.cluster.local
+      uri: "/"
+    route:
+    - destination:
+        host: cluster-local-gateway.istio-system.svc.cluster.local
+        port:
+          number: 80
+{{- end -}}
+{{- end }}

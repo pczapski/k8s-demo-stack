@@ -1,0 +1,16 @@
+version: '2'
+
+tasks:
+  default:
+    cmds:
+      - task -l
+  build:
+    desc: build binary
+    dir: ./examples/test-app
+    cmds:
+      - go build -o bin/app main.go
+  tools:
+    desc: install tools
+    dir: ./examples/test-app
+    cmds:
+      - cat tools.go | grep _ | awk -F'"' '{print $2}' | xargs -tI % go install %

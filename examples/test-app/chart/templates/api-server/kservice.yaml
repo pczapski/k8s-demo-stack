@@ -1,0 +1,17 @@
+{{- if .Values.apiServer.enabled }}
+{{- if .Values.apiServer.service.external.enabled }}
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: {{ include "chart.fullname" . }}-api-server
+spec:
+  template:
+    spec:
+      containers:
+        - image: {{ .Values.image }}
+          args: [ "api-server"]
+          env:
+            - name: GIN_MODE
+              value: release
+{{- end -}}
+{{- end }}

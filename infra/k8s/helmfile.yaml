@@ -1,0 +1,16 @@
+repositories:
+  - name: istio
+    url: https://storage.googleapis.com/istio-release/releases/{{ requiredEnv "ISTIO_VERSION" }}/charts
+releases:
+  - name: istio-init
+    chart: istio/istio-init
+    version: {{ requiredEnv "ISTIO_VERSION" }}
+    namespace: istio-system
+    values:
+      - charts-config/istio/init.yaml
+  - name: istio
+    chart: istio/istio
+    version: {{ requiredEnv "ISTIO_VERSION" }}
+    namespace: istio-system
+    values:
+      - charts-config/istio/values.yaml

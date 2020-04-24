@@ -1,0 +1,53 @@
+global:
+  proxy:
+    autoInject: disabled
+    accessLogFile: "/dev/stdout"
+  disablePolicyChecks: true
+  controlPlaneSecurityEnabled: true
+  mtls:
+    enabled: false
+gateways:
+  istio-ingressgateway:
+    tolerations:
+    - effect: NoSchedule
+      key: node-role.kubernetes.io/master
+    nodeSelector:
+      ingress-ready: "true"
+    autoscaleMin: 1
+    autoscaleMax: 5
+    daemonsetEnabled: true
+    type: NodePort
+    sds:
+      enabled: true
+  istio-egressgateway:
+    enabled: false
+  istio-ilbgateway:
+    enabled: false
+prometheus:
+  enabled: false
+sidecarInjectorWebhook:
+  enabled: false
+  enableNamespacesByDefault: true
+  rewriteAppHTTPProbe: true
+  replicaCount: 1
+mixer:
+  policy:
+    replicaCount: 1
+    autoscaleMin: 1
+  telemetry:
+    enabled: false
+galley:
+  replicaCount: 1
+  autoscaleMin: 1
+security:
+  replicaCount: 1
+pilot:
+  resources:
+    requests:
+      memory: 128Mi
+  replicaCount: 1
+  autoscaleMin: 1
+tracing:
+  enabled: true
+certmanager:
+  enabled: true

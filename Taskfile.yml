@@ -1,0 +1,190 @@
+# https://taskfile.dev
+
+version: '2'
+includes:
+  test-app: ./examples/test-app
+vars:
+  HELMFILE_COMMAND: ./bin/helmfile -b helm  -f ./infra/k8s/helmfile.yaml
+  SKAFFOLD_COMMAND: ./bin/skaffold
+tasks:
+  default:
+    cmds:
+      - task -l
+
+  direnv:init:
+    desc: Copy .envrc.dist to .envrc
+    cmds:
+      - cp .envrc.dist .envrc
+      - direnv allow
+    status:
+      - test -f .envrc
+
+  cluster:create:
+    desc: KIND cluster create
+    cmds:
+      - kind create cluster --name {{.K8S_CLUSTER_NAME}} --image {{.K8S_IMAGE}} --config ./infra/k8s/kind-cluster.yaml
+  cluster:delete:
+    desc: KIND cluster delete
+    cmds:
+      - kind delete cluster --name {{.K8S_CLUSTER_NAME}}
+
+  kubeconfig:
+    desc: Prepare envrc file with kubeconfig path.
+    cmds:
+      - kind get kubeconfig --name={{.K8S_CLUSTER_NAME}} > ./infra/k8s/kubeconfig
+      - echo "export KUBECONFIG=$PWD/infra/k8s/kubeconfig" >> .envrc
+      - direnv allow
+
+  istio:install:
+    desc: deploy istio
+    deps:
+      - get-helmfile
+      - get-helm
+    cmds:
+      - kubectl apply -f ./infra/k8s/charts-config/namespace.yaml
+      - "{{.HELMFILE_COMMAND}} --selector name=istio-init sync"
+      - source ./infra/k8s/scripts/check-components-status.sh; istioCrds
+      - "{{.HELMFILE_COMMAND}} --selector name=istio sync --skip-deps"
+
+  istio:delete:
+    desc: deploy istio
+    deps:
+      - get-helmfile
+    cmds:
+      - "{{.HELMFILE_COMMAND}} --selector name=istio destroy"
+      - "{{.HELMFILE_COMMAND}} --selector name=istio-init destroy"
+      - kubectl delete -f ./infra/k8s/charts-config/namespace.yaml
+
+  get-particular-istio:
+    desc: Get latest istio version
+    cmds:
+      - ./infra/k8s/scripts/getParticularIstio.sh
+    status:
+      - test -d ./infra/k8s/tmp/istio-{{.ISTIO_VERSION}}
+
+  knative-serving:install:
+    desc: Deploy knative serving components
+    cmds:
+      - kubectl apply --filename https://github.com/knative/serving/releases/download/{{.KNATIVE_SERVING_VERSION}}/serving-crds.yaml
+      - kubectl apply --filename https://github.com/knative/serving/releases/download/{{.KNATIVE_SERVING_VERSION}}/serving-core.yaml
+      - task: get-particular-istio
+      - for i in ./infra/k8s/tmp/istio-{{.ISTIO_VERSION}}/install/kubernetes/helm/istio-init/files/crd*yaml; do kubectl apply -f $i; done
+      - bin/helm template --namespace=istio-system
+        --set gateways.custom-gateway.autoscaleMin=1
+        --set gateways.custom-gateway.autoscaleMax=2
+        --set gateways.custom-gateway.cpu.targetAverageUtilization=60
+        --set gateways.custom-gateway.labels.app='cluster-local-gateway'
+        --set gateways.custom-gateway.labels.istio='cluster-local-gateway'
+        --set gateways.custom-gateway.type='ClusterIP'
+        --set gateways.istio-ingressgateway.enabled=false
+        --set gateways.istio-egressgateway.enabled=false
+        --set gateways.istio-ilbgateway.enabled=false
+        --set global.mtls.auto=false
+        ./infra/k8s/tmp/istio-{{.ISTIO_VERSION}}/install/kubernetes/helm/istio
+        -f ./infra/k8s/tmp/istio-{{.ISTIO_VERSION}}/install/kubernetes/helm/istio/example-values/values-istio-gateways.yaml | sed -e "s/custom-gateway/cluster-local-gateway/g" -e "s/customgateway/clusterlocalgateway/g" > ./infra/k8s/tmp/istio-local-gateway.yaml
+      - kubectl apply -f ./infra/k8s/tmp/istio-local-gateway.yaml
+      - kubectl apply --filename https://github.com/knative/net-istio/releases/download/{{.KNATIVE_SERVING_VERSION}}/net-istio.yaml
+      - kubectl patch configmap/config-domain --namespace knative-serving --type merge --patch '{"data":{"{{.LOCAL_DOMAIN}}":""}}'
+      - kubectl patch configmap/config-autoscaler --namespace knative-serving --type merge --patch '{"data":{"scale-to-zero-grace-period":"10s","stable-window":"60s"}}'
+
+  knative-eventing:install:
+    desc: Deploy knative eventing components
+    cmds:
+      - kubectl apply --filename https://github.com/knative/eventing/releases/download/{{.KNATIVE_EVENTING_VERSION}}/eventing-crds.yaml
+      - kubectl apply --filename https://github.com/knative/eventing/releases/download/{{.KNATIVE_EVENTING_VERSION}}/eventing-core.yaml
+      - kubectl apply --filename https://github.com/knative/eventing/releases/download/{{.KNATIVE_EVENTING_VERSION}}/in-memory-channel.yaml
+      - kubectl apply --filename https://github.com/knative/eventing/releases/download/{{.KNATIVE_EVENTING_VERSION}}/channel-broker.yaml
+      - kubectl label namespace default knative-eventing-injection=enabled --overwrite
+      - source ./infra/k8s/scripts/check-components-status.sh; defaultBrokerPods
+
+  knative-monitoring:install:
+    desc: Deploy knative monitoring components
+    cmds:
+      - kubectl apply --filename https://github.com/knative/serving/releases/download/{{.KNATIVE_SERVING_VERSION}}/monitoring-core.yaml
+      - kubectl apply --filename https://github.com/knative/serving/releases/download/{{.KNATIVE_SERVING_VERSION}}/monitoring-metrics-prometheus.yaml
+      - kubectl apply --filename https://github.com/knative/serving/releases/download/{{.KNATIVE_SERVING_VERSION}}/monitoring-logs-elasticsearch.yaml
+      - kubectl apply --filename https://github.com/knative/serving/releases/download/{{.KNATIVE_SERVING_VERSION}}/monitoring-tracing-jaeger.yaml
+      - kubectl apply --filename https://github.com/knative/serving/releases/download/{{.KNATIVE_SERVING_VERSION}}/monitoring-tracing-zipkin.yaml
+  olm:install:
+    cmds:
+      - kubectl apply --filename https://github.com/operator-framework/operator-lifecycle-manager/releases/download/{{.OLM_VERSION}}/crds.yaml
+      - kubectl apply --filename https://github.com/operator-framework/operator-lifecycle-manager/releases/download/{{.OLM_VERSION}}/olm.yaml
+  operators:install:
+    cmds:
+      - kubectl apply --filename ./infra/k8s/resources/operators.yaml
+  get-envsub:
+    cmds:
+      - wget -qO- https://github.com/kruc/envsub/releases/latest/download/envsub_{{OS}}.tar.gz | tar -xvz bin/envsub && chmod +x ./bin/envsub
+    status:
+      - test -f bin/envsub
+
+  parse-templates:
+    desc: Parse helloworld templates
+    deps:
+      - get-envsub
+    cmds:
+      - ./bin/envsub examples/**/*.tmpl --envs
+
+  knative-helloworld:install:
+    desc: Install knative helloworld app
+    cmds:
+      - source ./infra/scripts/check-components-status.sh; knativePods
+      - kubectl apply -f examples/knative-helloworld/service.yaml -f examples/knative-helloworld/helloworld-virtualservice.yaml
+
+  knative-helloworld:delete:
+    desc: Install knative helloworld app
+    cmds:
+      - kubectl delete -f examples/knative-helloworld/service.yaml -f examples/knative-helloworld/helloworld-virtualservice.yaml
+
+  istio-helloworld:install:
+    desc: Deploy hello world app
+    cmds:
+      - kubectl apply -f examples/istio-helloworld/helloworld.yaml -f examples/istio-helloworld/helloworld-virtualservice.yaml
+
+  istio-helloworld:delete:
+    desc: Delete hello world app
+    cmds:
+      - kubectl delete -f examples/istio-helloworld/helloworld.yaml -f examples/istio-helloworld/helloworld-virtualservice.yaml
+
+  init-env:
+    desc: Init environment
+    cmds:
+      - task: direnv:init
+      - task: cluster:create
+      - task: kubeconfig
+      - task: istio:install
+      - task: knative-serving:install
+      - task: knative-eventing:install
+      - task: parse-templates
+
+  examples:install:
+    desc: install examples
+    cmds:
+      - task: istio-helloworld:install
+      - task: knative-helloworld:install
+
+  examples:uninstall:
+    desc: uninstall examples
+    cmds:
+      - task: istio-helloworld:delete
+      - task: knative-helloworld:delete
+  test:
+    desc: Test
+    cmds:
+      - curl -s {{.LOCAL_DOMAIN}}/hello/istio #| grep -Eo 'HTTP/1.1 (200) OK'
+      - curl -s {{.LOCAL_DOMAIN}}/hello/knative #| grep -Eo 'HTTP/1.1 (200) OK'
+    silent: true
+
+  skaffold-build:
+    desc: Build skaffold services
+    deps:
+      - get-skaffold
+    cmds:
+      - "{{.SKAFFOLD_COMMAND}} build"
+
+  skaffold-run:
+    desc: Run skaffold services
+    deps:
+      - get-skaffold
+    cmds:
+      - "{{.SKAFFOLD_COMMAND}} run"

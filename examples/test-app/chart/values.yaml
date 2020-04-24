@@ -1,0 +1,10 @@
+image: testapp
+apiServer:
+  enabled: false
+  service:
+    internal:
+      enabled: false
+      hosts: []
+      path: /
+    external:
+     enabled: false

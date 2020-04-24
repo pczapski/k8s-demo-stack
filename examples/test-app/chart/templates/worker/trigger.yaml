@@ -1,0 +1,15 @@
+apiVersion: eventing.knative.dev/v1beta1
+kind: Trigger
+metadata:
+  name: {{ include "chart.fullname" . }}-worker
+spec:
+  broker: default
+  filter:
+    attributes:
+      type: helloworld
+      source: {{ include "chart.fullname" . }}-internal-api-server
+  subscriber:
+    ref:
+      apiVersion: v1
+      kind: Service
+      name: {{ include "chart.fullname" . }}-worker

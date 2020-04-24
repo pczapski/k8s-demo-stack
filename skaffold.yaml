@@ -1,0 +1,28 @@
+apiVersion: skaffold/v2beta1
+kind: Config
+metadata:
+  name: test-app
+build:
+  tagPolicy:
+    sha256: {}
+  artifacts:
+    - image:  ko.local/test-app
+      context: examples/test-app/
+      docker:
+        dockerfile: Dockerfile
+        buildArgs:
+          version: "dev"
+deploy:
+  helm:
+    releases:
+    - name: test-app
+      chartPath: examples/test-app/chart
+      namespace: default
+      values:
+        image:  ko.local/test-app
+      setValues:
+        apiServer.enabled: true
+        apiServer.service.internal.enabled: true
+        apiServer.service.internal.path: /test-app
+      setValueTemplates:
+        apiServer.service.internal.hosts[0]: "{{.LOCAL_DOMAIN}}"

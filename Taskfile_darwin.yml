@@ -1,0 +1,21 @@
+version: '2'
+
+tasks:
+  get-helmfile:
+    desc: Fetch helmfile binary
+    cmds:
+      - curl -Lo bin/helmfile https://github.com/roboll/helmfile/releases/download/{{.HELMFILE_VERSION}}/helmfile_darwin_amd64 && chmod +x bin/helmfile
+    status:
+      - test -f bin/helmfile
+  get-helm:
+    desc: Fetch helm binary
+    cmds:
+      -  wget -qO- https://get.helm.sh/helm-{{.HELM_VERSION}}-darwin-amd64.tar.gz | tar -xvz -C ./bin/ --strip 1 darwin-amd64/helm && chmod +x ./bin/helm
+    status:
+      - test -f bin/helm
+  get-skaffold:
+    desc: Fetch skaffold binary
+    cmds:
+      - curl -Lo bin/skaffold https://storage.googleapis.com/skaffold/releases/{{.SKAFFOLD_VERSION}}/skaffold-darwin-amd64 && chmod +x bin/skaffold
+    status:
+      - test -f bin/skaffold

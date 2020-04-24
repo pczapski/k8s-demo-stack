@@ -1,0 +1,20 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: kn-helloworld
+spec:
+  hosts:
+  - {{.LOCAL_DOMAIN}}
+  gateways:
+  - knative-ingress-gateway.knative-serving.svc.cluster.local
+  http:
+  - match:
+    - uri:
+        exact: /hello/knative
+    rewrite:
+      authority: helloworld-internal.default.svc.cluster.local
+    route:
+    - destination:
+        host: cluster-local-gateway.istio-system.svc.cluster.local
+        port:
+          number: 80
