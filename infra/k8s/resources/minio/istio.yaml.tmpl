@@ -1,0 +1,62 @@
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: minio.k8s.loc
+  namespace: istio-system
+spec:
+  secretName: minio-tls
+  commonName: minio.{{.LOCAL_DOMAIN}}
+  issuerRef:
+    name: selfsigned-issuer
+    kind: ClusterIssuer
+---
+
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: minio
+  namespace: minio
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - hosts:
+    - minio.{{.LOCAL_DOMAIN}}
+    port:
+      name: http
+      number: 80
+      protocol: HTTP
+    tls:
+      httpsRedirect: true
+  - hosts:
+    - minio.{{.LOCAL_DOMAIN}}
+    port:
+      name: https
+      number: 443
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: minio-tls
+      privateKey: sds
+      serverCertificate: sds
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: minio
+  namespace: minio
+spec:
+  hosts:
+  - minio.{{.LOCAL_DOMAIN}}
+  gateways:
+  - minio
+  http:
+  - match:
+    - port: 443
+    - port: 80
+    route:
+    - destination:
+        host: dev-hl-svc.minio.svc.cluster.local
+        port:
+          number: 9000
+---

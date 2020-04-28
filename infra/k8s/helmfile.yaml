@@ -1,6 +1,8 @@
 repositories:
   - name: istio
     url: https://storage.googleapis.com/istio-release/releases/{{ requiredEnv "ISTIO_VERSION" }}/charts
+  - name: codecentric
+    url: https://codecentric.github.io/helm-charts
 releases:
   - name: istio-init
     chart: istio/istio-init
@@ -14,3 +16,7 @@ releases:
     namespace: istio-system
     values:
       - charts-config/istio/values.yaml
+  - name: keycloak
+    chart: codecentric/keycloak
+    version: 7.5.0
+    namespace: keycloak

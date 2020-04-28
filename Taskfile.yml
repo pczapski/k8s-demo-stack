@@ -41,10 +41,11 @@ tasks:
       - get-helmfile
       - get-helm
     cmds:
-      - kubectl apply -f ./infra/k8s/charts-config/namespace.yaml
+      - kubectl apply -f ./infra/k8s/charts-config/istio/namespace.yaml
       - "{{.HELMFILE_COMMAND}} --selector name=istio-init sync"
       - source ./infra/k8s/scripts/check-components-status.sh; istioCrds
       - "{{.HELMFILE_COMMAND}} --selector name=istio sync --skip-deps"
+      - kubectl apply -f ./infra/k8s/charts-config/istio/certmanager.yaml
 
   istio:delete:
     desc: deploy istio
@@ -109,9 +110,26 @@ tasks:
     cmds:
       - kubectl apply --filename https://github.com/operator-framework/operator-lifecycle-manager/releases/download/{{.OLM_VERSION}}/crds.yaml
       - kubectl apply --filename https://github.com/operator-framework/operator-lifecycle-manager/releases/download/{{.OLM_VERSION}}/olm.yaml
-  operators:install:
+  minio:install:
     cmds:
-      - kubectl apply --filename ./infra/k8s/resources/operators.yaml
+      - ./bin/envsub ./infra/k8s/resources/minio/*.tmpl --envs
+      - kubectl apply --wait --filename ./infra/k8s/resources/minio/namespace.yaml
+      - kubectl apply --wait --filename ./infra/k8s/resources/minio/operator.yaml
+      - kubectl apply --wait --filename ./infra/k8s/resources/minio/minio.yaml
+      - kubectl apply --wait --filename ./infra/k8s/resources/minio/istio.yaml
+  keycloak:install:
+    cmds:
+      - ./bin/envsub ./infra/k8s/charts-config/keycloak/*.tmpl --envs
+      - kubectl apply --wait --filename ./infra/k8s/charts-config/keycloak/namespace.yaml
+      - "{{.HELMFILE_COMMAND}} --selector name=keycloak sync"
+      - kubectl apply --filename ./infra/k8s/charts-config/keycloak/istio.yaml
+  vault:install:
+    cmds:
+      - ./bin/envsub ./infra/k8s/resources/vault/*.tmpl --envs
+      - kubectl apply --wait --filename ./infra/k8s/resources/vault/namespace.yaml
+      - kubectl apply --wait --filename ./infra/k8s/resources/vault/operator.yaml
+      - kubectl apply --wait --filename ./infra/k8s/resources/vault/vault.yaml
+      - kubectl apply --wait --filename ./infra/k8s/resources/vault/istio.yaml
   get-envsub:
     cmds:
       - wget -qO- https://github.com/kruc/envsub/releases/latest/download/envsub_{{OS}}.tar.gz | tar -xvz bin/envsub && chmod +x ./bin/envsub

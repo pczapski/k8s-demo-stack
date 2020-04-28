@@ -1,0 +1,61 @@
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: keycloak-tls
+  namespace: istio-system
+spec:
+  secretName: keycloak-tls
+  commonName: keycloak.{{.LOCAL_DOMAIN}}
+  issuerRef:
+    name: selfsigned-issuer
+    kind: ClusterIssuer
+---
+
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: keycloak
+  namespace: keycloak
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - hosts:
+    - keycloak.{{.LOCAL_DOMAIN}}
+    port:
+      name: http
+      number: 80
+      protocol: HTTP
+    tls:
+      httpsRedirect: true
+  - hosts:
+    - keycloak.{{.LOCAL_DOMAIN}}
+    port:
+      name: https
+      number: 443
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: keycloak-tls
+      privateKey: sds
+      serverCertificate: sds
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: keycloak
+  namespace: keycloak
+spec:
+  hosts:
+  - keycloak.{{.LOCAL_DOMAIN}}
+  gateways:
+  - keycloak
+  http:
+  - match:
+    - port: 443
+    - port: 80
+    route:
+    - destination:
+        host: keycloak-http.keycloak.svc.cluster.local
+        port:
+          number: 80
