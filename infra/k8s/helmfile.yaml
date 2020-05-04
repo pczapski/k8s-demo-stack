@@ -3,6 +3,8 @@ repositories:
     url: https://storage.googleapis.com/istio-release/releases/{{ requiredEnv "ISTIO_VERSION" }}/charts
   - name: codecentric
     url: https://codecentric.github.io/helm-charts
+  - name: zalando-pg
+    url: https://raw.githubusercontent.com/zalando/postgres-operator/master/charts/postgres-operator
 releases:
   - name: istio-init
     chart: istio/istio-init
@@ -20,3 +22,7 @@ releases:
     chart: codecentric/keycloak
     version: 7.5.0
     namespace: keycloak
+  - name: postgres-operator
+    chart: zalando-pg/postgres-operator
+    version: 1.4.0
+    namespace: postgres

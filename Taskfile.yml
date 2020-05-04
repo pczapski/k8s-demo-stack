@@ -126,9 +126,10 @@ tasks:
   postgres:install:
     desc: install postgres
     cmds:
-      - kubectl apply --wait --filename https://operatorhub.io/install/postgres-operator.yaml
+      - kubectl apply --wait --filename ./infra/k8s/charts-config/postgres/namespace.yaml
+      - "{{.HELMFILE_COMMAND}} --selector name=postgres-operator sync"
       - source ./infra/k8s/scripts/check-components-status.sh; postgresqlcrd
-      - kubectl apply --wait --filename ./infra/k8s/resources/postgresql.yaml
+      - kubectl apply --wait --filename ./infra/k8s/charts-config/postgres/demo-db.yaml
   vault:install:
     cmds:
       - ./bin/envsub ./infra/k8s/resources/vault/*.tmpl --envs
@@ -137,6 +138,7 @@ tasks:
       - source ./infra/k8s/scripts/check-components-status.sh; vaultcrd
       - kubectl apply --wait --filename ./infra/k8s/resources/vault/vault.yaml
       - kubectl apply --wait --filename ./infra/k8s/resources/vault/istio.yaml
+      - echo Vault root token $(kubectl -n vault get secret vault-unseal-keys -o jsonpath='{.data.vault-root}' | base64 -d)
   get-envsub:
     cmds:
       - wget -qO- https://github.com/kruc/envsub/releases/latest/download/envsub_{{OS}}.tar.gz | tar -xvz bin/envsub && chmod +x ./bin/envsub
