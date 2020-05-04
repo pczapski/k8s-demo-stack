@@ -40,3 +40,11 @@ function postgresqlcrd()
   done
 
 }
+function vaultcrd()
+{
+  while [[ -z $(kubectl get crd --ignore-not-found=true vaults.vault.banzaicloud.com) ]] ; do
+  echo "Waiting for vault crd"
+  sleep 5
+  done
+
+}

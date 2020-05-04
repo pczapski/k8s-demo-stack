@@ -134,6 +134,7 @@ tasks:
       - ./bin/envsub ./infra/k8s/resources/vault/*.tmpl --envs
       - kubectl apply --wait --filename ./infra/k8s/resources/vault/namespace.yaml
       - kubectl apply --wait --filename ./infra/k8s/resources/vault/operator.yaml
+      - source ./infra/k8s/scripts/check-components-status.sh; vaultcrd
       - kubectl apply --wait --filename ./infra/k8s/resources/vault/vault.yaml
       - kubectl apply --wait --filename ./infra/k8s/resources/vault/istio.yaml
   get-envsub:
