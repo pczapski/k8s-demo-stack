@@ -108,7 +108,7 @@ tasks:
     desc: print demo minio credentials
     cmds:
       - echo accesskey $(kubectl -n minio get secret minio --ignore-not-found=true -o jsonpath='{.data.accesskey}' | base64 -d)
-      - echo secretkey $(kubectl -n minio get secret minio  --ignore-not-found=true -o jsonpath='{.data.secretkey}' | base64 -d)
+      - echo secretkey $(kubectl -n minio get secret minio --ignore-not-found=true -o jsonpath='{.data.secretkey}' | base64 -d)
     silent: true
   keycloak:install:
     desc: install keycloak
