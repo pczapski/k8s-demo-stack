@@ -97,27 +97,21 @@ tasks:
       - kubectl apply --filename https://github.com/knative/eventing/releases/download/{{.KNATIVE_EVENTING_VERSION}}/channel-broker.yaml
       - kubectl label namespace default knative-eventing-injection=enabled --overwrite
       - source ./infra/k8s/scripts/check-components-status.sh; defaultBrokerPods
-
-  knative-monitoring:install:
-    desc: Deploy knative monitoring components
-    cmds:
-      - kubectl apply --filename https://github.com/knative/serving/releases/download/{{.KNATIVE_SERVING_VERSION}}/monitoring-core.yaml
-      - kubectl apply --filename https://github.com/knative/serving/releases/download/{{.KNATIVE_SERVING_VERSION}}/monitoring-metrics-prometheus.yaml
-      - kubectl apply --filename https://github.com/knative/serving/releases/download/{{.KNATIVE_SERVING_VERSION}}/monitoring-logs-elasticsearch.yaml
-      - kubectl apply --filename https://github.com/knative/serving/releases/download/{{.KNATIVE_SERVING_VERSION}}/monitoring-tracing-jaeger.yaml
-      - kubectl apply --filename https://github.com/knative/serving/releases/download/{{.KNATIVE_SERVING_VERSION}}/monitoring-tracing-zipkin.yaml
-  olm:install:
-    cmds:
-      - kubectl apply --filename https://github.com/operator-framework/operator-lifecycle-manager/releases/download/{{.OLM_VERSION}}/crds.yaml
-      - kubectl apply --filename https://github.com/operator-framework/operator-lifecycle-manager/releases/download/{{.OLM_VERSION}}/olm.yaml
   minio:install:
+    desc: install minio
     cmds:
-      - ./bin/envsub ./infra/k8s/resources/minio/*.tmpl --envs
-      - kubectl apply --wait --filename ./infra/k8s/resources/minio/namespace.yaml
-      - kubectl apply --wait --filename ./infra/k8s/resources/minio/operator.yaml
-      - kubectl apply --wait --filename ./infra/k8s/resources/minio/minio.yaml
-      - kubectl apply --wait --filename ./infra/k8s/resources/minio/istio.yaml
+      - ./bin/envsub ./infra/k8s/charts-config/minio/*.tmpl --envs
+      - kubectl apply --wait --filename ./infra/k8s/charts-config/minio/namespace.yaml
+      - "{{.HELMFILE_COMMAND}} --selector name=minio sync"
+      - kubectl apply --wait --filename ./infra/k8s/charts-config/minio/istio.yaml
+  minio:get-credentials:
+    desc: print demo minio credentials
+    cmds:
+      - echo accesskey $(kubectl -n minio get secret minio --ignore-not-found=true -o jsonpath='{.data.accesskey}' | base64 -d)
+      - echo secretkey $(kubectl -n minio get secret minio  --ignore-not-found=true -o jsonpath='{.data.secretkey}' | base64 -d)
+    silent: true
   keycloak:install:
+    desc: install keycloak
     cmds:
       - ./bin/envsub ./infra/k8s/charts-config/keycloak/*.tmpl --envs
       - kubectl apply --wait --filename ./infra/k8s/charts-config/keycloak/namespace.yaml
@@ -130,15 +124,30 @@ tasks:
       - "{{.HELMFILE_COMMAND}} --selector name=postgres-operator sync"
       - source ./infra/k8s/scripts/check-components-status.sh; postgresqlcrd
       - kubectl apply --wait --filename ./infra/k8s/charts-config/postgres/demo-db.yaml
+  postgres:get-credentials:
+    desc: print demo database credentials
+    cmds:
+      - echo Username $(kubectl -n postgres get secret demo.demo-db.credentials --ignore-not-found=true -o jsonpath='{.data.username}' | base64 -d)
+      - echo Password $(kubectl -n postgres get secret demo.demo-db.credentials --ignore-not-found=true -o jsonpath='{.data.password}' | base64 -d)
+    silent: true
   vault:install:
     cmds:
-      - ./bin/envsub ./infra/k8s/resources/vault/*.tmpl --envs
-      - kubectl apply --wait --filename ./infra/k8s/resources/vault/namespace.yaml
-      - kubectl apply --wait --filename ./infra/k8s/resources/vault/operator.yaml
+      - ./bin/envsub ./infra/k8s/charts-config/vault/*.tmpl --envs
+      - kubectl apply --wait --filename ./infra/k8s/charts-config/vault/namespace.yaml
+      - "{{.HELMFILE_COMMAND}} --selector name=vault-operator sync"
       - source ./infra/k8s/scripts/check-components-status.sh; vaultcrd
       - kubectl apply --wait --filename ./infra/k8s/resources/vault/vault.yaml
       - kubectl apply --wait --filename ./infra/k8s/resources/vault/istio.yaml
-      - echo Vault root token $(kubectl -n vault get secret vault-unseal-keys -o jsonpath='{.data.vault-root}' | base64 -d)
+    vars:
+      DB_USER:
+        sh: kubectl -n postgres get secret demo.demo-db.credentials --ignore-not-found=true -o jsonpath='{.data.username}' | base64 -d
+      DB_PASSWORD:
+        sh: kubectl -n postgres get secret demo.demo-db.credentials --ignore-not-found=true -o jsonpath='{.data.password}' | base64 -d
+  vault:root-token:
+    desc: print vault root token
+    cmds:
+      - echo Vault root token $(kubectl -n vault get secret vault-unseal-keys --ignore-not-found=true -o jsonpath='{.data.vault-root}' | base64 -d)
+    silent: true
   get-envsub:
     cmds:
       - wget -qO- https://github.com/kruc/envsub/releases/latest/download/envsub_{{OS}}.tar.gz | tar -xvz bin/envsub && chmod +x ./bin/envsub
