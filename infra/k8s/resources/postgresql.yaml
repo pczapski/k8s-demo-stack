@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: postgres
+  labels:
+    istio-injection: disabled
+---
+apiVersion: acid.zalan.do/v1
+kind: postgresql
+metadata:
+  name: demo-db
+  namespace: postgres
+spec:
+  databases:
+    demo: demo
+  numberOfInstances: 1
+  postgresql:
+    version: '12'
+  teamId: demo
+  users:
+    demo:
+      - superuser
+      - createdb
+  volume:
+    size: 1Gi

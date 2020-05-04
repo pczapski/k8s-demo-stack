@@ -31,3 +31,12 @@ function defaultBrokerPods()
   sleep 5
   done
 }
+
+function postgresqlcrd()
+{
+  while [[ -z $(kubectl get crd --ignore-not-found=true postgresqls.acid.zalan.do) ]] ; do
+  echo "Waiting for postgresql crd"
+  sleep 5
+  done
+
+}

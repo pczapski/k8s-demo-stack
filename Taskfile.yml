@@ -123,6 +123,12 @@ tasks:
       - kubectl apply --wait --filename ./infra/k8s/charts-config/keycloak/namespace.yaml
       - "{{.HELMFILE_COMMAND}} --selector name=keycloak sync"
       - kubectl apply --filename ./infra/k8s/charts-config/keycloak/istio.yaml
+  postgres:install:
+    desc: install postgres
+    cmds:
+      - kubectl apply --wait --filename https://operatorhub.io/install/postgres-operator.yaml
+      - source ./infra/k8s/scripts/check-components-status.sh; postgresqlcrd
+      - kubectl apply --wait --filename ./infra/k8s/resources/postgresql.yaml
   vault:install:
     cmds:
       - ./bin/envsub ./infra/k8s/resources/vault/*.tmpl --envs
