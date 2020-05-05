@@ -112,11 +112,29 @@ tasks:
     silent: true
   keycloak:install:
     desc: install keycloak
+    vars:
+      KEYCLOAK_VERSION: 9.0.2
     cmds:
       - ./bin/envsub ./infra/k8s/charts-config/keycloak/*.tmpl --envs
       - kubectl apply --wait --filename ./infra/k8s/charts-config/keycloak/namespace.yaml
-      - "{{.HELMFILE_COMMAND}} --selector name=keycloak sync"
+      - kubectl apply --wait --filename https://raw.githubusercontent.com/keycloak/keycloak-operator/{{.KEYCLOAK_VERSION}}/deploy/crds/keycloak.org_keycloakbackups_crd.yaml
+      - kubectl apply --wait --filename https://raw.githubusercontent.com/keycloak/keycloak-operator/{{.KEYCLOAK_VERSION}}/deploy/crds/keycloak.org_keycloakclients_crd.yaml
+      - kubectl apply --wait --filename https://raw.githubusercontent.com/keycloak/keycloak-operator/{{.KEYCLOAK_VERSION}}/deploy/crds/keycloak.org_keycloakrealms_crd.yaml
+      - kubectl apply --wait --filename https://raw.githubusercontent.com/keycloak/keycloak-operator/{{.KEYCLOAK_VERSION}}/deploy/crds/keycloak.org_keycloaks_crd.yaml
+      - kubectl apply --wait --filename https://raw.githubusercontent.com/keycloak/keycloak-operator/{{.KEYCLOAK_VERSION}}/deploy/crds/keycloak.org_keycloakusers_crd.yaml
+      - kubectl -n keycloak apply --wait --filename https://raw.githubusercontent.com/keycloak/keycloak-operator/{{.KEYCLOAK_VERSION}}/deploy/role.yaml
+      - kubectl -n keycloak apply --wait --filename https://raw.githubusercontent.com/keycloak/keycloak-operator/{{.KEYCLOAK_VERSION}}/deploy/role_binding.yaml
+      - kubectl -n keycloak apply --wait --filename https://raw.githubusercontent.com/keycloak/keycloak-operator/{{.KEYCLOAK_VERSION}}/deploy/service_account.yaml
+      - kubectl -n keycloak apply --wait --filename https://raw.githubusercontent.com/keycloak/keycloak-operator/{{.KEYCLOAK_VERSION}}/deploy/operator.yaml
+      - kubectl patch deployment/keycloak-operator  --namespace keycloak --patch "$(cat ./infra/k8s/scripts/keycloak-patch.json)"
+      - kubectl apply --wait --filename ./infra/k8s/charts-config/keycloak/keycloak.yaml
       - kubectl apply --filename ./infra/k8s/charts-config/keycloak/istio.yaml
+  keycloak:get-credentials:
+    desc: print demo keycloak credentials
+    cmds:
+      - echo Username $(kubectl -n keycloak get secret credential-demo --ignore-not-found=true -o jsonpath='{.data.ADMIN_USERNAME}' | base64 -d)
+      - echo Password $(kubectl -n keycloak get secret credential-demo  --ignore-not-found=true -o jsonpath='{.data.ADMIN_PASSWORD}' | base64 -d)
+    silent: true
   postgres:install:
     desc: install postgres
     cmds:
@@ -136,8 +154,8 @@ tasks:
       - kubectl apply --wait --filename ./infra/k8s/charts-config/vault/namespace.yaml
       - "{{.HELMFILE_COMMAND}} --selector name=vault-operator sync"
       - source ./infra/k8s/scripts/check-components-status.sh; vaultcrd
-      - kubectl apply --wait --filename ./infra/k8s/resources/vault/vault.yaml
-      - kubectl apply --wait --filename ./infra/k8s/resources/vault/istio.yaml
+      - kubectl apply --wait --filename ./infra/k8s/charts-config/vault/vault.yaml
+      - kubectl apply --wait --filename ./infra/k8s/charts-config/vault/istio.yaml
     vars:
       DB_USER:
         sh: kubectl -n postgres get secret demo.demo-db.credentials --ignore-not-found=true -o jsonpath='{.data.username}' | base64 -d

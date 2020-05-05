@@ -1,0 +1,14 @@
+{
+    "spec": {
+       "template": {
+          "spec": {
+             "containers": [
+                {
+                   "name": "keycloak-operator",
+                   "image": "wwojcik/keycloak-operator:9.0.2"
+                }
+             ]
+          }
+       }
+    }
+ }

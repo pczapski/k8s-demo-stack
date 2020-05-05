@@ -52,10 +52,14 @@ spec:
   - keycloak
   http:
   - match:
-    - port: 443
     - port: 80
+    - port: 443
     route:
     - destination:
-        host: keycloak-http.keycloak.svc.cluster.local
+        host: keycloak.keycloak.svc.cluster.local
         port:
-          number: 80
+          number: 8080
+    headers:
+      request:
+        set:
+          x-forwarded-proto: http

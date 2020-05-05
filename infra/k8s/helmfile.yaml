@@ -1,8 +1,6 @@
 repositories:
   - name: istio
     url: https://storage.googleapis.com/istio-release/releases/{{ requiredEnv "ISTIO_VERSION" }}/charts
-  - name: codecentric
-    url: https://codecentric.github.io/helm-charts
   - name: zalando-pg
     url: https://raw.githubusercontent.com/zalando/postgres-operator/master/charts/postgres-operator
   - name: banzaicloud-stable
@@ -22,11 +20,6 @@ releases:
     values:
       - charts-config/istio/values.yaml
 
-  - name: keycloak
-    chart: codecentric/keycloak
-    version: 7.5.0
-    namespace: keycloak
-
   - name: postgres-operator
     chart: zalando-pg/postgres-operator
     version: 1.4.0
@@ -34,7 +27,7 @@ releases:
 
   - name: vault-operator
     chart: banzaicloud-stable/vault-operator
-    version: 1.2.1
+    version: 1.2.0
     namespace: vault
 
   - name: minio
